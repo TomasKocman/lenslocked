@@ -25,16 +25,17 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable", host, port, user, dbname)
 
-	us, err := models.NewUserService(psqlInfo)
+	services, err := models.NewServices(psqlInfo)
 	if err != nil {
 		panic(err)
 	}
-	defer us.Close()
+	defer services.Close()
 
-	us.AutoMigrate()
+	services.AutoMigrate()
 
 	staticC := controllers.NewStatic()
-	usersC := controllers.NewUsers(us)
+	usersC := controllers.NewUsers(services.User)
+	galleriesC := controllers.NewGalleries(services.Gallery)
 
 	r := mux.NewRouter()
 
@@ -50,7 +51,10 @@ func main() {
 
 	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
 
+	r.Handle("/galleries/new", galleriesC.New).Methods("GET")
+
 	r.NotFoundHandler = http.HandlerFunc(notFound)
 
+	fmt.Println("Starting the server on :3000...")
 	http.ListenAndServe(":3000", r)
 }

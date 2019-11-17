@@ -1,9 +1,20 @@
 package views
 
 import (
+	"bytes"
 	"html/template"
+	"io"
 	"net/http"
 	"path/filepath"
+)
+
+const (
+	AlertLvlError   = "danger"
+	AlertLvlWarning = "warning"
+	AlertLvlInfo    = "info"
+	AlertLvlSuccess = "success"
+
+	AlertMsgGeneric = "Something went wrong. Please try again, and contact us if the problem persists."
 )
 
 var (
@@ -17,15 +28,38 @@ type View struct {
 	Layout   string
 }
 
-func (v *View) Render(w http.ResponseWriter, data interface{}) error {
+type Data struct {
+	Alert *Alert
+	Yield interface{}
+}
+
+type Alert struct {
+	Level   string
+	Message string
+}
+
+func (v *View) Render(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "text/html")
-	return v.Template.ExecuteTemplate(w, v.Layout, data)
+
+	switch data.(type) {
+	case Data:
+	default:
+		data = Data{
+			Yield: data,
+		}
+	}
+
+	var buf bytes.Buffer
+	err := v.Template.ExecuteTemplate(&buf, v.Layout, data)
+	if err != nil {
+		http.Error(w, "Something went wrong. If the problem persists, please email support@lenslocked.com", http.StatusInternalServerError)
+		return
+	}
+	io.Copy(w, &buf)
 }
 
 func (v *View) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := v.Render(w, nil); err != nil {
-		panic(err)
-	}
+	v.Render(w, nil)
 }
 
 func layoutFiles() []string {
