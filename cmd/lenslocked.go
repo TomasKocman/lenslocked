@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"lenslocked/middleware"
 	"lenslocked/models"
 	"net/http"
 
@@ -37,6 +38,8 @@ func main() {
 	usersC := controllers.NewUsers(services.User)
 	galleriesC := controllers.NewGalleries(services.Gallery)
 
+	requireUserMw := middleware.RequireUser{UserService: services.User}
+
 	r := mux.NewRouter()
 
 	r.Handle("/", staticC.Home).Methods("GET")
@@ -51,7 +54,11 @@ func main() {
 
 	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
 
-	r.Handle("/galleries/new", galleriesC.New).Methods("GET")
+	newGallery := requireUserMw.Apply(galleriesC.New)
+	createGallery := requireUserMw.ApplyFn(galleriesC.Create)
+	r.Handle("/galleries/new", newGallery).Methods("GET")
+	r.HandleFunc("/galleries", createGallery).Methods("POST")
+	r.HandleFunc("/galleries/{id:[0-9]+}", galleriesC.Show).Methods("GET")
 
 	r.NotFoundHandler = http.HandlerFunc(notFound)
 
