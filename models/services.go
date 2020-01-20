@@ -3,9 +3,10 @@ package models
 import "github.com/jinzhu/gorm"
 
 type Services struct {
-	db      *gorm.DB
 	Gallery GalleryService
 	User    UserService
+	Image   ImageService
+	db      *gorm.DB
 }
 
 func NewServices(connectionInfo string) (*Services, error) {
@@ -17,9 +18,10 @@ func NewServices(connectionInfo string) (*Services, error) {
 	db.LogMode(true)
 
 	return &Services{
-		db:      db,
 		User:    NewUserService(db),
 		Gallery: NewGalleryService(db),
+		Image:   NewImageService(),
+		db:      db,
 	}, nil
 }
 
