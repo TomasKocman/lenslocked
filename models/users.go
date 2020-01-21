@@ -23,10 +23,6 @@ const (
 	ErrEmailTaken        modelError = "models: email address is already taken"
 	ErrRememberRequired  modelError = "models: remember token is required"
 	ErrRememberTooShort  modelError = "models: remember token must be at least 32 bytes"
-
-	userPwPepper = "secret-random-string"
-
-	hmacSecretKey = "secret-hmac-key"
 )
 
 type modelError string
@@ -71,13 +67,17 @@ type User struct {
 
 type userService struct {
 	UserDB
+	pepper string
 }
 
-func NewUserService(db *gorm.DB) UserService {
+func NewUserService(db *gorm.DB, pepper, hmacKey string) UserService {
 	ug := &userGorm{db: db}
-	hmac := hash.NewHMAC(hmacSecretKey)
-	uv := newUserValidator(ug, hmac)
-	return &userService{UserDB: uv}
+	hmac := hash.NewHMAC(hmacKey)
+	uv := newUserValidator(ug, hmac, pepper)
+	return &userService{
+		UserDB: uv,
+		pepper: pepper,
+	}
 }
 
 func (us *userService) Authenticate(email, password string) (*User, error) {
@@ -86,7 +86,7 @@ func (us *userService) Authenticate(email, password string) (*User, error) {
 		return nil, err
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(password+userPwPepper))
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(password+us.pepper))
 	switch err {
 	case nil:
 		return foundUser, nil
@@ -100,13 +100,15 @@ func (us *userService) Authenticate(email, password string) (*User, error) {
 type userValidator struct {
 	UserDB
 	hmac       hash.HMAC
+	pepper     string
 	emailRegex *regexp.Regexp
 }
 
-func newUserValidator(db UserDB, hmac hash.HMAC) *userValidator {
+func newUserValidator(db UserDB, hmac hash.HMAC, pepper string) *userValidator {
 	return &userValidator{
 		UserDB:     db,
 		hmac:       hmac,
+		pepper:     pepper,
 		emailRegex: regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,16}$`),
 	}
 }
@@ -216,7 +218,7 @@ func (uv *userValidator) bcryptPassword(user *User) error {
 		return nil
 	}
 
-	pwBytes := []byte(user.Password + userPwPepper)
+	pwBytes := []byte(user.Password + uv.pepper)
 	hashedBytes, err := bcrypt.GenerateFromPassword(pwBytes, bcrypt.DefaultCost)
 	if err != nil {
 		return err

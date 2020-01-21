@@ -1,34 +1,42 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"github.com/gorilla/csrf"
-	"lenslocked/middleware"
-	"lenslocked/models"
-	"lenslocked/rand"
 	"net/http"
 
 	"lenslocked/controllers"
+	"lenslocked/middleware"
+	"lenslocked/models"
+	"lenslocked/rand"
 
+	"github.com/gorilla/csrf"
 	"github.com/gorilla/mux"
 )
 
-const (
-	host   = "localhost"
-	port   = 5432
-	user   = "postgres"
-	dbname = "lenslocked_dev"
-)
-
-func notFound(w http.ResponseWriter, r *http.Request) {
+func notFound(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, "Ops.. page not found")
 }
 
 func main() {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable", host, port, user, dbname)
+	boolPtr := flag.Bool(
+		"prod",
+		false,
+		"Provide this flag in production. This ensures that a config.json file is provided before the application starts.",
+	)
+	flag.Parse()
 
-	services, err := models.NewServices(psqlInfo)
+	cfg := LoadConfig(*boolPtr)
+	dbCfg := cfg.Database
+
+	services, err := models.NewServices(
+		models.WithGorm(dbCfg.Dialect(), dbCfg.ConnectionInfo()),
+		models.WithLogMode(!cfg.IsProd()),
+		models.WithUser(cfg.Pepper, cfg.HMACKey),
+		models.WithGallery(),
+		models.WithImage(),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -84,13 +92,12 @@ func main() {
 
 	r.NotFoundHandler = http.HandlerFunc(notFound)
 
-	isProd := false
 	b, err := rand.Bytes(32)
 	if err != nil {
 		panic(err)
 	}
-	csrfMw := csrf.Protect(b, csrf.Secure(isProd))
+	csrfMw := csrf.Protect(b, csrf.Secure(cfg.IsProd()))
 
-	fmt.Println("Starting the server on :3000...")
-	http.ListenAndServe(":3000", csrfMw(userMw.Apply(r)))
+	fmt.Printf("Starting the server on :%d...\n", cfg.Port)
+	http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), csrfMw(userMw.Apply(r)))
 }

@@ -9,7 +9,7 @@ postgresql:
 	-d postgres:latest
 
 bin:
-	go build -i -o bin/lenslocked cmd/lenslocked.go
+	go build -i -o bin/lenslocked cmd/lenslocked/*
 
 build:
 	go build ./...
