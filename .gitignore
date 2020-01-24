@@ -1,8 +1,7 @@
 .DS_Store
-
 .idea/
 
-bin/
-exp/
+lenslocked.com
 
+exp/
 images/**

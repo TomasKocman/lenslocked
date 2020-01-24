@@ -8,11 +8,14 @@ postgresql:
 	-p 5432:5432 \
 	-d postgres:latest
 
+init:
+	go mod download && go mod verify
+
 bin:
-	go build -i -o bin/lenslocked cmd/lenslocked/*
+	go build -o lenslocked.com -i ./cmd/lenslocked/*
 
 build:
 	go build ./...
 
 run:
-	bin/lenslocked
+	./lenslocked.com
