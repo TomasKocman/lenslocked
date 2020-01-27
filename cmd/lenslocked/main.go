@@ -70,6 +70,9 @@ func main() {
 	r.Handle("/login", usersC.LoginView).Methods("GET")
 	r.HandleFunc("/login", usersC.Login).Methods("POST")
 
+	logoutUser := requireUserMw.ApplyFn(usersC.Logout)
+	r.Handle("/logout", logoutUser).Methods("POST")
+
 	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
 
 	indexGallery := requireUserMw.ApplyFn(galleriesC.Index)
